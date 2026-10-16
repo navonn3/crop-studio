@@ -1,0 +1,3 @@
+node_modules/
+# plaintext app source stays local; only the encrypted build (docs/) is published
+src/app.html
