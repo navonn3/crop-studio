@@ -5,7 +5,8 @@ JSON to data/games/ (git-ignored). `node build.mjs` then encrypts them into docs
 
 Video time of a moment (same as MediaHub addToPL): mp = t + offset + shift, where scorebug-mapped games
 (`exact`) carry the true action second (shift 0) and VidSwap-tag games are offset-synced with shift +4.
-Only games with an HLS link and either `exact` or a sync offset are exported.
+Only games listed in tools/broadcast_games.txt (the user's own broadcasts) are exported, and only if they
+have an HLS link and either `exact` or a sync offset.
 
 Usage:  python tools/export_games.py [path/to/MediaHub]
 """
@@ -20,6 +21,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 MH = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "My-IBBA-Dash" / "MediaHub"
 OUT = HERE / "data" / "games"
+WHITELIST = HERE / "tools" / "broadcast_games.txt"
+
+
+def whitelist():
+    gids = set()
+    for line in WHITELIST.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            gids.add(int(line))
+    return gids
 
 
 def score(sc):
@@ -71,9 +82,12 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for old in OUT.glob("*.json"):
         old.unlink()
+    wanted = whitelist()
     index = []
     for g in data["games"]:
         gid = g["gid"]
+        if gid not in wanted:
+            continue
         moms = by_gid.get(gid)
         if not g.get("m3u8") or not moms:
             continue
