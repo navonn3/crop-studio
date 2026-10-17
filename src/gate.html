@@ -37,16 +37,18 @@ const KEY='cs_key_'+P.s;
 async function decrypt(key){return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:ub(P.i)},key,ub(P.c)));}
 async function derive(pw){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt:ub(P.s),iterations:P.n,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);}
-function run(html){document.open();document.write(html);document.close();}
+// the key is handed to the app (it decrypts the game files in g/ with it)
+function run(html,raw){html=html.replace('__CS_KEY__',()=>raw);document.open();document.write(html);document.close();}
 (async()=>{let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
   if(!raw)return;
-  try{const key=await crypto.subtle.importKey('raw',ub(raw),'AES-GCM',false,['decrypt']);run(await decrypt(key));}
+  try{const key=await crypto.subtle.importKey('raw',ub(raw),'AES-GCM',false,['decrypt']);run(await decrypt(key),raw);}
   catch(e){try{localStorage.removeItem(KEY);}catch(_){}}})();
 document.getElementById('f').onsubmit=async e=>{e.preventDefault();const err=document.getElementById('err'),go=document.getElementById('go');
   err.textContent='';go.disabled=true;
   try{const key=await derive(document.getElementById('pw').value);const html=await decrypt(key);
-    if(document.getElementById('rem').checked){try{localStorage.setItem(KEY,b64(await crypto.subtle.exportKey('raw',key)));}catch(_){}}
-    run(html);}
+    const raw=b64(await crypto.subtle.exportKey('raw',key));
+    if(document.getElementById('rem').checked){try{localStorage.setItem(KEY,raw);}catch(_){}}
+    run(html,raw);}
   catch(_){err.textContent='סיסמה שגויה';go.disabled=false;}};
 </script>
 </body>
