@@ -38,7 +38,13 @@ async function decrypt(key){return new TextDecoder().decode(await crypto.subtle.
 async function derive(pw){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt:ub(P.s),iterations:P.n,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);}
 // the key is handed to the app (it decrypts the game files in g/ with it)
-function run(html,raw){html=html.replace('__CS_KEY__',()=>raw);document.open();document.write(html);document.close();}
+// swap the gate for the app only once this page has fully loaded: a document.open() that lands while the gate is
+// still loading (the remembered-key path is fast) can append the app NEXT TO the gate instead of replacing it
+// (seen on Android Chrome: form + app side by side). The gate's form and styles are removed first either way.
+function run(html,raw){html=html.replace('__CS_KEY__',()=>raw);
+  const go=()=>{document.getElementById('f')?.remove();document.querySelectorAll('style').forEach(s=>s.remove());
+    document.open();document.write(html);document.close();};
+  if(document.readyState==='complete')go();else addEventListener('load',go,{once:true});}
 (async()=>{let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
   if(!raw)return;
   try{const key=await crypto.subtle.importKey('raw',ub(raw),'AES-GCM',false,['decrypt']);run(await decrypt(key),raw);}
