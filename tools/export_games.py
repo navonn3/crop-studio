@@ -74,6 +74,11 @@ def main():
     offsets = {int(k): v for k, v in (proj.get("offsets") or {}).items()}
     scores_p = MH / "moment_scores.json"
     scores = json.loads(scores_p.read_text(encoding="utf-8")) if scores_p.exists() else {}
+    # venue recordings move to cloud_hls a day or two after the game, trimmed at the start:
+    # hls_moves.json maps gid -> {m3u8, shift}, shift (s) added to every moment time
+    moves_p = MH / "hls_moves.json"
+    moves = {int(k): v for k, v in json.loads(moves_p.read_text(encoding="utf-8")).items()
+             if not k.startswith("_")} if moves_p.exists() else {}
 
     by_gid = defaultdict(list)
     for m in data["moments"]:
@@ -95,7 +100,8 @@ def main():
         if not exact and gid not in offsets:
             continue
         off = 0 if exact else offsets[gid]
-        shift = 0 if exact else 4
+        shift = (0 if exact else 4) + moves.get(gid, {}).get("shift", 0.0)
+        url = moves.get(gid, {}).get("m3u8") or g["m3u8"]
         sides = player_sides(moms)
         rows = []
         for m in sorted(moms, key=lambda m: m["t"]):
@@ -114,7 +120,7 @@ def main():
         (OUT / f"{gid}.json").write_text(json.dumps({"gid": gid, "m": rows}, ensure_ascii=False, separators=(",", ":")),
                                          encoding="utf-8")
         index.append({"gid": gid, "date": g.get("date") or "", "home": g.get("home") or "", "away": g.get("away") or "",
-                      "url": g["m3u8"], "n": len(rows)})
+                      "url": url, "n": len(rows)})
     with ThreadPoolExecutor(8) as ex:
         ok = list(ex.map(lambda g: reachable(g["url"]), index))
     dead = [g for g, o in zip(index, ok) if not o]

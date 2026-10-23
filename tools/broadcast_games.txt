@@ -1,3 +1,4 @@
 # Games published to the phone tool: only the games the user broadcasts (MediaHub gid, one per line).
 # After a game is scanned in MediaHub: add its gid here, then export_games.py + build.mjs + push.
 1926302  # 2026-10-16 Leumit R1 — א.ס רמה"ש – מ.כ עוטף דרום
+1926308  # 2026-10-23 Leumit R2 — א.ס. אשקלון/קרית גת – מכבי עירוני רעננה
