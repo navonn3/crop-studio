@@ -20,7 +20,10 @@ const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: IT
 const seal = async bytes => { const v = crypto.getRandomValues(new Uint8Array(12));
   const c = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: v }, key, bytes));
   const o = new Uint8Array(12 + c.length); o.set(v); o.set(c, 12); return o; };
-const app = readFileSync('src/app.html', 'utf8');
+// build stamp shown in the header, so a phone can tell whether it runs the newest version (Pages caches 10 min)
+const d = new Date(), pad = x => String(x).padStart(2, '0');
+const stamp = `${d.getDate()}.${d.getMonth() + 1} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const app = readFileSync('src/app.html', 'utf8').replace('__BUILD__', () => stamp);
 const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(app));
 
 const payload = JSON.stringify({ s: b64(salt), i: b64(iv), c: b64(new Uint8Array(ct)), n: ITER });
