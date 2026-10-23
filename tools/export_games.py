@@ -13,6 +13,7 @@ Usage:  python tools/export_games.py [path/to/MediaHub]
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from collections import Counter, defaultdict
@@ -48,6 +49,26 @@ def reachable(url):
             return r.status == 200
     except (urllib.error.URLError, OSError):
         return False
+
+
+def media_playlist(url):
+    """A master playlist -> its highest-BANDWIDTH media playlist. Fresh cloud_hls masters also list
+    EXT-X-I-FRAME-STREAM-INF variants that answer 403, and the in-browser demuxer fails on them
+    ("Error fetching ..._IFRAME.m3u8: 403", 1926308). Pointing at the media playlist skips them; MediaHub's
+    scorebug mapping uses the same top rendition. Unreachable/other -> the url unchanged."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=15) as r:
+            text = r.read().decode("utf-8", "replace")
+    except (urllib.error.URLError, OSError):
+        return url
+    best, bw, lines = None, -1, text.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("#EXT-X-STREAM-INF:"):
+            b = int(line.split("BANDWIDTH=", 1)[1].split(",", 1)[0]) if "BANDWIDTH=" in line else 0
+            uri = next((x.strip() for x in lines[i + 1:] if x.strip() and not x.startswith("#")), None)
+            if uri and b > bw:
+                best, bw = uri, b
+    return urllib.parse.urljoin(url, best) if best else url
 
 
 def player_sides(moms):
@@ -101,7 +122,7 @@ def main():
             continue
         off = 0 if exact else offsets[gid]
         shift = (0 if exact else 4) + moves.get(gid, {}).get("shift", 0.0)
-        url = moves.get(gid, {}).get("m3u8") or g["m3u8"]
+        url = media_playlist(moves.get(gid, {}).get("m3u8") or g["m3u8"])
         sides = player_sides(moms)
         rows = []
         for m in sorted(moms, key=lambda m: m["t"]):
