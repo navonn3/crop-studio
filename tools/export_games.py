@@ -95,8 +95,9 @@ def main():
     offsets = {int(k): v for k, v in (proj.get("offsets") or {}).items()}
     scores_p = MH / "moment_scores.json"
     scores = json.loads(scores_p.read_text(encoding="utf-8")) if scores_p.exists() else {}
-    # venue recordings move to cloud_hls a day or two after the game, trimmed at the start:
-    # hls_moves.json maps gid -> {m3u8, shift}, shift (s) added to every moment time
+    # Pixellot keeps one copy of a recording alive, venue_hls or cloud_hls, and it can switch (1926302 venue->cloud,
+    # 1926308 cloud->venue): hls_moves.json maps gid -> {m3u8, shift}, shift (s) added to every moment time.
+    # The index carries it as `sh` so the app can move plays saved against the previous copy.
     moves_p = MH / "hls_moves.json"
     moves = {int(k): v for k, v in json.loads(moves_p.read_text(encoding="utf-8")).items()
              if not k.startswith("_")} if moves_p.exists() else {}
@@ -141,7 +142,7 @@ def main():
         (OUT / f"{gid}.json").write_text(json.dumps({"gid": gid, "m": rows}, ensure_ascii=False, separators=(",", ":")),
                                          encoding="utf-8")
         index.append({"gid": gid, "date": g.get("date") or "", "home": g.get("home") or "", "away": g.get("away") or "",
-                      "url": url, "n": len(rows)})
+                      "url": url, "sh": moves.get(gid, {}).get("shift", 0.0), "n": len(rows)})
     with ThreadPoolExecutor(8) as ex:
         ok = list(ex.map(lambda g: reachable(g["url"]), index))
     dead = [g for g, o in zip(index, ok) if not o]
