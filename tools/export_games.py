@@ -142,7 +142,12 @@ def main():
         (OUT / f"{gid}.json").write_text(json.dumps({"gid": gid, "m": rows}, ensure_ascii=False, separators=(",", ":")),
                                          encoding="utf-8")
         index.append({"gid": gid, "date": g.get("date") or "", "home": g.get("home") or "", "away": g.get("away") or "",
-                      "url": url, "sh": moves.get(gid, {}).get("shift", 0.0), "n": len(rows)})
+                      "url": url, "sh": moves.get(gid, {}).get("shift", 0.0), "n": len(rows),
+                      # every copy, commentary first: `pref` copies (maybe dead, but a phone may still have their
+                      # segments cached), then the live one. Same base time as `t`: sh = that copy's shift.
+                      "urls": [{"u": media_playlist(x["m3u8"]), "sh": x.get("shift", 0.0), "nc": "venue_hls" in x["m3u8"]}
+                               for x in moves.get(gid, {}).get("pref", [])]
+                              + [{"u": url, "sh": moves.get(gid, {}).get("shift", 0.0), "nc": "venue_hls" in url}]})
     with ThreadPoolExecutor(8) as ex:
         ok = list(ex.map(lambda g: reachable(g["url"]), index))
     dead = [g for g, o in zip(index, ok) if not o]
