@@ -147,7 +147,12 @@ def main():
                       # segments cached), then the live one. Same base time as `t`: sh = that copy's shift.
                       "urls": [{"u": media_playlist(x["m3u8"]), "sh": x.get("shift", 0.0), "nc": "venue_hls" in x["m3u8"]}
                                for x in moves.get(gid, {}).get("pref", [])]
-                              + [{"u": url, "sh": moves.get(gid, {}).get("shift", 0.0), "nc": "venue_hls" in url}]})
+                              + [{"u": url, "sh": moves.get(gid, {}).get("shift", 0.0), "nc": "venue_hls" in url}],
+                      # short commentary cuts of single plays (R2), t=0 = time `a` of a copy with shift `sh`
+                      **({"cuts": {"sh": moves[gid]["cuts"]["shift"], "list": moves[gid]["cuts"]["list"]}}
+                         if moves.get(gid, {}).get("cuts") else {}),
+                      # one-off edits to saved plays near moment `mp` (mapped time): move IN by `din` s, once (`id`)
+                      **({"fix": moves[gid]["fix"]} if moves.get(gid, {}).get("fix") else {})})
     with ThreadPoolExecutor(8) as ex:
         ok = list(ex.map(lambda g: reachable(g["url"]), index))
     dead = [g for g, o in zip(index, ok) if not o]
